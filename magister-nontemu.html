@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Magister Rooster App</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --accent: #3b82f6;
+      --accent-dark: #1d4ed8;
+      --muted: #6b7280;
+      --shadow: 0 6px 20px rgba(0,0,0,0.08);
+      --text: #111827;
+    }
+    [data-theme='dark'] {
+      --bg: #121212;
+      --card: #1e1e1e;
+      --accent: #60a5fa;
+      --accent-dark: #3b82f6;
+      --muted: #9ca3af;
+      --shadow: 0 6px 20px rgba(0,0,0,0.4);
+      --text: #f9fafb;
+    }
+    body { font-family:'Inter', sans-serif; margin:0; background: var(--bg); color: var(--text); display:flex; height:100vh; overflow:hidden; transition: background 0.3s, color 0.3s; }
+    .sidebar { width:70px; background: var(--card); box-shadow: var(--shadow); display:flex; flex-direction:column; transition: width 0.3s; overflow:hidden; }
+    .sidebar.expanded { width:200px; }
+    .sidebar button { background:none; border:none; padding:16px; text-align:left; font-size:16px; color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+    .sidebar button span { display:inline; transition: opacity 0.3s; }
+    .sidebar:not(.expanded) button span { opacity:0; width:0; overflow:hidden; display:inline-block; }
+    .sidebar button.active { background: var(--accent); color:#fff; }
+    .sidebar .toggleBtn { margin-top:auto; border-top:1px solid #e5e7eb; }
+    .main-content { flex:1; overflow-y:auto; padding:24px; }
+    h1 { font-size:24px; margin:0 0 12px 0; color: var(--accent-dark); }
+    .muted { color: var(--muted); font-size:14px; margin-top:4px; }
+    .card { background: var(--card); padding:16px; border-radius:16px; box-shadow: var(--shadow); margin-bottom:16px; transition: background 0.3s, color 0.3s; }
+    textarea, input[type='text'] { width:100%; border:1px solid #d1d5db; padding:10px; border-radius:10px; font-family: monospace; background: var(--bg); color: var(--text); }
+    textarea { min-height:100px; resize: vertical; }
+    table { width:100%; border-collapse: collapse; margin-top:12px; }
+    th, td { padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    th { background: #f9fafb; font-weight:600; font-size:14px; }
+    .time { white-space:nowrap; font-weight:600; color: var(--accent-dark); }
+    .tag { display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid #dbeafe; background:#e0f2fe; color: var(--accent); margin-left:8px; }
+    .lesson-card { border-radius:12px; padding:14px; border:1px solid #e5e7eb; margin-bottom:14px; cursor:pointer; transition: transform 0.2s; }
+    .lesson-card:hover{ transform: translateY(-2px); }
+    .date-separator { margin-top:20px; margin-bottom:10px; font-weight:600; color: var(--accent-dark); }
+    .popup { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:10; }
+    .popup-content { background: var(--card); padding:20px; border-radius:12px; width:400px; max-width:90%; display:flex; flex-direction:column; gap:8px; }
+    .popup-content .controls { margin-top:10px; display:flex; justify-content:flex-end; gap:10px; }
+    .btn { padding:10px 16px; background: var(--accent); border:none; border-radius:12px; color:#fff; cursor:pointer; font-weight:600; transition: background 0.3s; }
+    .btn:hover { background: var(--accent-dark); }
+    .todo-item { border-bottom:1px solid #e5e7eb; padding:6px 0; display:flex; align-items:center; justify-content:space-between; }
+  </style>
+</head>
+<body data-theme="light">
+  <div class="sidebar" id="sidebar">
+    <button class="active" data-tab="upload">📄 <span>JSON Paste</span></button>
+    <button data-tab="rooster">📅 <span>Rooster</span></button>
+    <button data-tab="todolist">📝 <span>To-Do List</span></button>
+    <button class="toggleBtn" id="expandSidebar">☰ <span>Expand</span></button>
+    <button class="toggleBtn" id="darkModeToggle">🌙 <span>Dark Mode</span></button>
+  </div>
+  <div class="main-content">
+    <div id="uploadTab">
+      <h1>JSON Plak</h1>
+      <div class="card upload-card">
+        <textarea id="jsonArea" placeholder='Plak hier de volledige JSON van Magister'></textarea>
+        <button class="btn" id="parseBtn">Verwerk JSON</button>
+        <div class="muted">Items: <span id="itemCount">0</span></div>
+      </div>
+    </div>
+
+    <div id="roosterTab" style="display:none">
+      <h1>Rooster</h1>
+      <div id="roosterContainer" class="card">
+        <div id="roosterContent"></div>
+      </div>
+    </div>
+
+    <div id="todolistTab" style="display:none">
+      <h1>To-Do List</h1>
+      <div class="card" id="todolistContainer"></div>
+    </div>
+  </div>
+
+  <div class="popup" id="notePopup">
+    <div class="popup-content">
+      <h2>Notes & Todos</h2>
+      <textarea id="noteArea" placeholder="Typ hier je notes..."></textarea>
+      <input type="text" id="todoInput" placeholder="Voeg een todo toe...">
+      <div class="controls">
+        <button class="btn" id="saveNote">Opslaan</button>
+        <button class="btn" id="deleteNote">Verwijder</button>
+        <button class="btn" id="closePopup">Sluiten</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const tabs = document.querySelectorAll('.sidebar button[data-tab]');
+    const tabContents = {upload:document.getElementById('uploadTab'), rooster:document.getElementById('roosterTab'), todolist:document.getElementById('todolistTab')};
+    const expandBtn = document.getElementById('expandSidebar');
+    const darkBtn = document.getElementById('darkModeToggle');
+    const popup = document.getElementById('notePopup');
+    const noteArea = document.getElementById('noteArea');
+    const todoInput = document.getElementById('todoInput');
+
+    expandBtn.onclick = ()=>{ sidebar.classList.toggle('expanded'); };
+    darkBtn.onclick = ()=>{ document.body.dataset.theme = document.body.dataset.theme==='light'?'dark':'light'; };
+
+    tabs.forEach(btn=>{
+      btn.onclick=()=>{
+        tabs.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        Object.values(tabContents).forEach(c=>c.style.display='none');
+        tabContents[btn.dataset.tab].style.display='block';
+      };
+    });
+
+    let schedule=[];
+    let selectedLesson=null;
+    const itemCount = document.getElementById('itemCount');
+    const jsonArea = document.getElementById('jsonArea');
+    const roosterContent = document.getElementById('roosterContent');
+    const todolistContainer = document.getElementById('todolistContainer');
+
+    document.getElementById('parseBtn').onclick = ()=>{
+      try{
+        schedule = JSON.parse(jsonArea.value).Items||[];
+        itemCount.innerText = schedule.length;
+        renderSchedule();
+        renderTodoList();
+      }catch(e){ alert('Ongeldige JSON') }
+    };
+
+    // Maak eerst een object voor docentcodes
+    const docentLijst = {
+      ADN: "Huub Adriaanse",
+      AKN: "Ufuk Akgün",
+      BEA: "Mily de Beer",
+      BRW: "Dorus Brouwer",
+      MCA: "Menno van Calcar",
+      CAS: "Judith Casteel",
+      CIR: "Daniëla Cirone",
+      COS: "Mark Costeris",
+      DOK: "Joyke van Dok",
+      EYK: "Ingrid van der Eijk-Persoon",
+      END: "Thomas van den Ende",
+      ENG: "Ayla Engels",
+      FUN: "Marleen Funnekotter",
+      GEM: "Rémon van Gemeren",
+      GTK: "Jan Wilco Geijtenbeek",
+      GIE: "Corine Gielliet-van Haaren",
+      GRG: "Chantal Girgis",
+      GOE: "Noortje Goedhart-Vos",
+      GRI: "Fani Grigoropoulou",
+      HKA: "Sigrid Haaksma",
+      HEK: "Karin de Heer",
+      HEI: "Sanne Heijnis-Mens",
+      HMR: "Lisette Hemelaar",
+      HGK: "Sybren Heres Hoogerkamp",
+      HMN: "Tessa Hermans",
+      HRS: "Richard Hermsen",
+      HDD: "Rosanne Hoenderdos",
+      HUL: "Sanne van der Hulst",
+      KLI: "Marieke van Klink",
+      KCH: "Astrid Koch",
+      KOK: "Maarten de Kok",
+      RKK: "Ruben Kok",
+      KSE: "Nina Kroese",
+      KPR: "Aline Kuiper",
+      LEU: "Frank van Leeuwen",
+      LEM: "Silvia Lemmens",
+      MTS: "Nina Matser",
+      MEL: "Melissa van Melle",
+      MNN: "Constantijn Mennes",
+      MLL: "Saskia Muller",
+      NBR: "Gijs Nieboer",
+      NTM: "Mark de Niet",
+      NWN: "Simone Nieuwenhuizen",
+      NWD: "Gert-Jan Nieuwstad",
+      NYS: "Martine de Nijs-Vogelsang",
+      ORS: "Irma van Oorschot",
+      PDS: "Hessel Paulides",
+      RTU: "Dafina Ratiu",
+      RSM: "Joyce van Rossum",
+      STS: "Evaline dos Santos",
+      SPS: "Igor Scheepens",
+      SCH: "Tom Schils",
+      CSL: "Coen Sluijter",
+      SMH: "Kirsten Smith",
+      STD: "Chantal Steenaard",
+      SNF: "Boudewijn Steenhof",
+      TLM: "Eva Tolman-van Kreuningen",
+      VAT: "Kirsten van der Vaart",
+      VLT: "Nop Velthuizen",
+      VMT: "Bouke Vermaat",
+      WRF: "Paul van der Werf",
+      WER: "Petra Werkman",
+      WIN: "Hilda de Wijn",
+      WNU: "Hanke Winius",
+      WKN: "Sandra Winkenius"
+    };
+    
+    // Functie om docentcode te halen uit omschrijving
+    function haalDocentUitOmschrijving(omschrijving) {
+      if (!omschrijving) return "Onbekend";
+    
+      const parts = omschrijving.split('-').map(p => p.trim());
+      if (parts.length < 2) return "Onbekend";
+    
+      const docentCode = parts[1].toUpperCase();
+      const docentNaam = docentLijst[docentCode];
+    
+      if (!docentNaam) return "Onbekend";
+    
+      const [voornaam, ...achternaam] = docentNaam.split(" ");
+      return `${voornaam[0]}. ${achternaam.join(" ")}`;
+    }
+
+
+
+    function renderSchedule() {
+      roosterContent.innerHTML = '';
+      if(schedule.length === 0) return;
+    
+      // Groepeer items per dag
+      const grouped = {};
+      schedule.forEach(item => {
+        const dateObj = new Date(item.Start);
+        const dateStr = dateObj.toLocaleDateString('nl-NL', { weekday: 'long', day:'numeric', month:'long' });
+        if(!grouped[dateStr]) grouped[dateStr] = [];
+        grouped[dateStr].push(item);
+      });
+    
+      // Sorteer dagen
+      Object.keys(grouped).sort((a,b) => new Date(grouped[a][0].Start) - new Date(grouped[b][0].Start))
+        .forEach(dateStr => {
+    
+          const items = grouped[dateStr];
+    
+          // Datum bovenaan
+          const sep = document.createElement('div');
+          sep.className = 'date-separator';
+          sep.textContent = dateStr;
+          roosterContent.appendChild(sep);
+    
+          // Bereken dagstart en dagend tijden
+          const dagStart = new Date(Math.min(...items.map(i=>new Date(i.Start))));
+          const dagEind  = new Date(Math.max(...items.map(i=>new Date(i.Einde))));
+          const startStr = dagStart.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+          const eindStr  = dagEind.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    
+          // Tijd in blauwe bubble
+          const timeBubble = document.createElement('span');
+          timeBubble.className = 'tag';
+          timeBubble.textContent = `${startStr} - ${eindStr}`;
+          sep.appendChild(document.createTextNode(' ')); // spatie tussen datum en bubble
+          sep.appendChild(timeBubble);
+    
+          // Render lessen
+          items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'lesson-card';
+    
+            // Haal docent uit omschrijving
+            const docent = haalDocentUitOmschrijving(item.Omschrijving);
+    
+            // Combineer vak + docent
+            const vakText = item.Vakken.map(v => `${v.Naam} - ${docent}`).join(', ');
+    
+            // Lokaal in bubble
+            const locaties = item.Lokalen ? item.Lokalen.map(l => `<span class="tag">${l.Naam}</span>`).join(' ') : '';
+    
+            div.innerHTML = `
+              <div><strong>${vakText}</strong> ${locaties}</div>
+              <div>${item.Inhoud ? item.Inhoud.replace(/<[^>]*>/g,'') : ''}</div>
+            `;
+    
+            div.onclick = () => { openNotePopup(item); };
+            roosterContent.appendChild(div);
+          });
+      });
+    }
+
+
+
+
+
+
+    function openNotePopup(item){
+      selectedLesson=item;
+      const saved = JSON.parse(localStorage.getItem('lessonNotes')||'{}');
+      noteArea.value = saved[item.Id]?.notes || '';
+      todoInput.value='';
+      popup.style.display='flex';
+    }
+
+    document.getElementById('closePopup').onclick=()=>{ popup.style.display='none'; };
+
+    document.getElementById('saveNote').onclick=()=>{
+      if(!selectedLesson) return;
+      const saved = JSON.parse(localStorage.getItem('lessonNotes')||'{}');
+      if(!saved[selectedLesson.Id]) saved[selectedLesson.Id]={notes:'', todos:[]};
+      saved[selectedLesson.Id].notes = noteArea.value;
+      if(todoInput.value.trim()!=='') saved[selectedLesson.Id].todos.push({text:todoInput.value.trim(), done:false});
+      if(selectedLesson.Inhoud && selectedLesson.Inhoud.trim()!==''){
+        const hwText = selectedLesson.Inhoud.replace(/<[^>]*>/g,'').trim();
+        if(hwText && !saved[selectedLesson.Id].todos.some(t=>t.text===hwText)){
+          saved[selectedLesson.Id].todos.push({text:hwText, done:false});
+        }
+      }
+      localStorage.setItem('lessonNotes', JSON.stringify(saved));
+      popup.style.display='none';
+      renderSchedule();
+      renderTodoList();
+    };
+
+    document.getElementById('deleteNote').onclick=()=>{
+      if(!selectedLesson) return;
+      const saved = JSON.parse(localStorage.getItem('lessonNotes')||'{}');
+      delete saved[selectedLesson.Id];
+      localStorage.setItem('lessonNotes', JSON.stringify(saved));
+      popup.style.display='none';
+      renderSchedule();
+      renderTodoList();
+    };
+
+    function renderTodoList(){
+      todolistContainer.innerHTML='';
+      const saved = JSON.parse(localStorage.getItem('lessonNotes')||'{}');
+      Object.keys(saved).forEach(k=>{
+        const lesson = schedule.find(it=>it.Id==k);
+        if(!lesson) return;
+    
+        const lessonDiv = document.createElement('div');
+        lessonDiv.className = 'lesson-block';
+        lessonDiv.innerHTML = `<h3>${lesson.Vakken.map(v=>v.Naam).join(', ')} <span class='tag'>${lesson.Lokatie}</span></h3>`;
+    
+        // Notities eerst tonen
+        if(saved[k].notes && saved[k].notes.trim()!==''){
+          const noteDiv = document.createElement('div');
+          noteDiv.style.marginTop='8px';
+          noteDiv.style.padding='6px';
+          noteDiv.style.borderTop='1px solid #e5e7eb';
+          noteDiv.textContent = saved[k].notes;
+          lessonDiv.appendChild(noteDiv);
+        }
+    
+        // Todos tonen
+        saved[k].todos.forEach((t, idx)=>{
+          const todoEl = document.createElement('div');
+          todoEl.className='todo-item';
+          todoEl.innerHTML=`<span>${t.text}</span><input type='checkbox' ${t.done?'checked':''} data-idx='${idx}' data-id='${k}'>`;
+          todoEl.querySelector('input').onchange = (e)=>{
+            const idx=parseInt(e.target.dataset.idx);
+            const id=e.target.dataset.id;
+            const data=JSON.parse(localStorage.getItem('lessonNotes')||'{}');
+            data[id].todos[idx].done = e.target.checked;
+            localStorage.setItem('lessonNotes', JSON.stringify(data));
+          };
+          lessonDiv.appendChild(todoEl);
+        });
+    
+        todolistContainer.appendChild(lessonDiv);
+      });
+    }
+
+
+  </script>
+</body>
+</html>
+
