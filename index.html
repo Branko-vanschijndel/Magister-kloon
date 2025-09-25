@@ -61,6 +61,7 @@
     <button data-tab="todolist">📝 <span>To-Do List</span></button>
     <button class="toggleBtn" id="expandSidebar">☰ <span>Expand</span></button>
     <button class="toggleBtn" id="darkModeToggle">🌙 <span>Dark Mode</span></button>
+    <button class="toggleBtn" id="MemeNamesToggle">🗿<span>Meme Names</span></button>  
   </div>
   <div class="main-content">
     <div id="uploadTab">
@@ -99,6 +100,8 @@
   </div>
 
   <script>
+      
+    let memeNamesEnabled = false;
     const sidebar = document.getElementById('sidebar');
     const tabs = document.querySelectorAll('.sidebar button[data-tab]');
     const tabContents = {upload:document.getElementById('uploadTab'), rooster:document.getElementById('roosterTab'), todolist:document.getElementById('todolistTab')};
@@ -107,9 +110,16 @@
     const popup = document.getElementById('notePopup');
     const noteArea = document.getElementById('noteArea');
     const todoInput = document.getElementById('todoInput');
+    const MemeBtn = document.getElementById('MemeNamesToggle');
 
+
+      
     expandBtn.onclick = ()=>{ sidebar.classList.toggle('expanded'); };
     darkBtn.onclick = ()=>{ document.body.dataset.theme = document.body.dataset.theme==='light'?'dark':'light'; };
+    MemeBtn.onclick = () => {
+        memeNamesEnabled = !memeNamesEnabled;   // toggle aan/uit
+        renderSchedule();                       // rooster opnieuw tekenen met nieuwe namen
+    };
 
     tabs.forEach(btn=>{
       btn.onclick=()=>{
@@ -163,7 +173,7 @@
       HMR: "Lisette Hemelaar",
       HGK: "Sybren Heres Hoogerkamp",
       HMN: "Tessa Hermans",
-      HRS: "Autistisch Konijn",
+      HRS: "Richard Hermsen",
       HDD: "Rosanne Hoenderdos",
       HUL: "Sanne van der Hulst",
       KLI: "Marieke van Klink",
@@ -171,7 +181,7 @@
       KOK: "Maarten de Kok",
       RKK: "Ruben Kok",
       KSE: "Nina Kroese",
-      KPR: "Autistische Bitch",
+      KPR: "Aline Kuiper",
       LEU: "Frank van Leeuwen",
       LEM: "Silvia Lemmens",
       MTS: "Nina Matser",
@@ -189,7 +199,7 @@
       RSM: "Joyce van Rossum",
       STS: "Evaline dos Santos",
       SPS: "Igor Scheepens",
-      SCH: "Big Boy",
+      SCH: "Tom Schils",
       CSL: "Coen Sluijter",
       SMH: "Kirsten Smith",
       STD: "Chantal Steenaard",
@@ -205,7 +215,13 @@
       WKN: "Sandra Winkenius"
     };
     
-    // Functie om docentcode te halen uit omschrijving
+    // extra lijstje met memes
+    const memeNamen = {
+      "Aline Kuiper": "Autistische Bitch",
+      "Richard Hermsen": "Autistisch Konijn",
+      "Tom Schils": "Big Boy"
+    };
+    
     function haalDocentUitOmschrijving(omschrijving) {
       if (!omschrijving) return "Onbekend";
     
@@ -213,10 +229,16 @@
       if (parts.length < 2) return "Onbekend";
     
       const docentCode = parts[1].toUpperCase();
-      const docentNaam = docentLijst[docentCode];
+      let docentNaam = docentLijst[docentCode];
     
       if (!docentNaam) return "Onbekend";
     
+      // als meme modus aanstaat -> vervang naam
+      if (memeNamesEnabled && memeNamen[docentNaam]) {
+        return memeNamen[docentNaam];
+      }
+    
+      // standaard: initiaal + achternaam
       const [voornaam, ...achternaam] = docentNaam.split(" ");
       return `${voornaam[0]}. ${achternaam.join(" ")}`;
     }
